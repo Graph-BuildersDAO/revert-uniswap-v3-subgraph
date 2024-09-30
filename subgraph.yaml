@@ -6,8 +6,8 @@ schema:
 features:
   - nonFatalErrors
 graft:
-  base: QmdAczXqazFn25MFTQh9FgTQ36qdqiPP2JhikAa4tNsxBr
-  block: 35708281
+  base: QmZQ2rF1Fsqbo3VbEpMBoB7hitCTGdYqn2CMB4bb3kkEyS
+  block: 42713190
 dataSources:
   - kind: ethereum/contract
     name: Factory
@@ -38,6 +38,8 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
+        - event: FeeAmountEnabled(indexed uint24,indexed int24)
+          handler: handleFeeAmountEnabled
   - kind: ethereum/contract
     name: NonfungiblePositionManager
     network: bsc

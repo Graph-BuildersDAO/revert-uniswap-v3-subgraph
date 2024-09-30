@@ -35,6 +35,11 @@ type Bundle @entity {
   ethPriceUSD: BigDecimal!
 }
 
+type FeeTierToTickSpacing @entity {
+  id: ID!
+  tickSpacing: BigInt!
+}
+
 type Token @entity {
   # token address
   id: ID!
