@@ -1,7 +1,7 @@
 /* eslint-disable prefer-const */
 import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import { bigDecimalExponated, safeDiv } from '.'
-import { Tick } from '../types/schema'
+import { FeeTierToTickSpacing, Tick } from '../types/schema'
 import { Mint as MintEvent } from '../types/templates/Pool/Pool'
 import { ONE_BD, ZERO_BD, ZERO_BI } from './constants'
 
@@ -54,5 +54,9 @@ export function feeTierToTickSpacing(feeTier: BigInt): BigInt {
     return BigInt.fromI32(1)
   }
 
+  let fts = FeeTierToTickSpacing.load(feeTier.toString())
+  if (fts) {
+    return fts.tickSpacing
+  }
   throw Error('Unexpected fee tier')
 }

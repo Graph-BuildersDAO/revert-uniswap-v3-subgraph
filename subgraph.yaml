@@ -2,8 +2,8 @@ specVersion: 0.0.2
 description: Uniswap is a decentralized protocol for automated token exchange on Ethereum.
 repository: https://github.com/Uniswap/uniswap-v3-subgraph
 graft:
-  base: QmWWUHn4qL1X7KkqgASncY7CPVf8TTp53kKNYqviyTpHUp
-  block: 37071073
+  base: QmaK5sUZwg7CBrxSmEgzgaD6uafQH8RxVRP4dAkPK5JXru
+  block: 42713003
 schema:
   file: ./schema.graphql
 features:
@@ -38,6 +38,8 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
+        - event: FeeAmountEnabled(indexed uint24,indexed int24)
+          handler: handleFeeAmountEnabled
   - kind: ethereum/contract
     name: NonfungiblePositionManager
     network: bsc
