@@ -6,12 +6,12 @@ import {
   Pool,
   PoolDayData,
   Token,
-  TokenDayData,
-  TokenHourData,
+  TokenData,
   Bundle,
   PoolHourData,
   TickDayData,
-  Tick
+  Tick,
+  TickData
 } from './../types/schema'
 import { FACTORY_ADDRESS } from './constants'
 import { ethereum } from '@graphprotocol/graph-ts'
@@ -49,8 +49,8 @@ export function updatePoolDayData(event: ethereum.Event): PoolDayData {
     .concat('-')
     .concat(dayID.toString())
   let pool = Pool.load(event.address.toHexString())!
-  let poolDayData = PoolDayData.load(dayPoolID)!
-  if (poolDayData === null) {
+  let poolDayData = PoolDayData.load(dayPoolID)
+  if (!poolDayData) {
     poolDayData = new PoolDayData(dayPoolID)
     poolDayData.date = dayStartTimestamp
     poolDayData.pool = pool.id
@@ -67,7 +67,7 @@ export function updatePoolDayData(event: ethereum.Event): PoolDayData {
     poolDayData.low = pool.token0Price
     poolDayData.close = pool.token0Price
   }
-
+ let a = event.transaction.hash
   if (pool.token0Price.gt(poolDayData.high)) {
     poolDayData.high = pool.token0Price
   }
@@ -140,114 +140,39 @@ export function updatePoolHourData(event: ethereum.Event): PoolHourData {
   return poolHourData as PoolHourData
 }
 
-export function updateTokenDayData(token: Token, event: ethereum.Event): TokenDayData {
+export function updateTokenTimeseries(token: Token): TokenData {
   let bundle = Bundle.load('1')!
-  let timestamp = event.block.timestamp.toI32()
-  let dayID = timestamp / 86400
-  let dayStartTimestamp = dayID * 86400
-  let tokenDayID = token.id
-    .toString()
-    .concat('-')
-    .concat(dayID.toString())
-  let tokenPrice = token.derivedETH.times(bundle.ethPriceUSD)
 
-  let tokenDayData = TokenDayData.load(tokenDayID)
-  if (tokenDayData === null) {
-    tokenDayData = new TokenDayData(tokenDayID)
-    tokenDayData.date = dayStartTimestamp
-    tokenDayData.token = token.id
-    tokenDayData.volume = ZERO_BD
-    tokenDayData.volumeUSD = ZERO_BD
-    tokenDayData.feesUSD = ZERO_BD
-    tokenDayData.untrackedVolumeUSD = ZERO_BD
-    tokenDayData.open = tokenPrice
-    tokenDayData.high = tokenPrice
-    tokenDayData.low = tokenPrice
-    tokenDayData.close = tokenPrice
-  }
+  let tokenTimeseriesData = new TokenData("auto") 
+  tokenTimeseriesData.token = token.id
+  tokenTimeseriesData.volume = token.volume
+  tokenTimeseriesData.volumeUSD = token.volumeUSD
+  tokenTimeseriesData.untrackedVolumeUSD = token.untrackedVolumeUSD
+  tokenTimeseriesData.totalValueLocked = token.totalValueLocked
+  tokenTimeseriesData.totalValueLockedUSD = token.totalValueLockedUSD
+  tokenTimeseriesData.priceUSD = token.derivedETH.times(bundle.ethPriceUSD)
+  tokenTimeseriesData.feesUSD = token.feesUSD
 
-  if (tokenPrice.gt(tokenDayData.high)) {
-    tokenDayData.high = tokenPrice
-  }
+  tokenTimeseriesData.save()
 
-  if (tokenPrice.lt(tokenDayData.low)) {
-    tokenDayData.low = tokenPrice
-  }
-
-  tokenDayData.close = tokenPrice
-  tokenDayData.priceUSD = token.derivedETH.times(bundle.ethPriceUSD)
-  tokenDayData.totalValueLocked = token.totalValueLocked
-  tokenDayData.totalValueLockedUSD = token.totalValueLockedUSD
-  tokenDayData.save()
-
-  return tokenDayData as TokenDayData
+  return tokenTimeseriesData as TokenData
 }
 
-export function updateTokenHourData(token: Token, event: ethereum.Event): TokenHourData {
-  let bundle = Bundle.load('1')!
-  let timestamp = event.block.timestamp.toI32()
-  let hourIndex = timestamp / 3600 // get unique hour within unix history
-  let hourStartUnix = hourIndex * 3600 // want the rounded effect
-  let tokenHourID = token.id
-    .toString()
-    .concat('-')
-    .concat(hourIndex.toString())
-  let tokenHourData = TokenHourData.load(tokenHourID)
-  let tokenPrice = token.derivedETH.times(bundle.ethPriceUSD)
+export function updateTickTimeseries(tick: Tick): TickData {
+  
+  let tickData = new TickData("auto")
+  tickData.pool = tick.pool
+  tickData.tick = tick.id
+  tickData.liquidityGross = tick.liquidityGross
+  tickData.liquidityNet = tick.liquidityNet
+  tickData.volumeToken0 = tick.volumeToken0
+  tickData.volumeToken1 = tick.volumeToken0
+  tickData.volumeUSD = tick.volumeUSD
+  tickData.feesUSD = tick.feesUSD
+  tickData.feeGrowthOutside0X128 = tick.feeGrowthOutside0X128
+  tickData.feeGrowthOutside1X128 = tick.feeGrowthOutside1X128
 
-  if (tokenHourData === null) {
-    tokenHourData = new TokenHourData(tokenHourID)
-    tokenHourData.periodStartUnix = hourStartUnix
-    tokenHourData.token = token.id
-    tokenHourData.volume = ZERO_BD
-    tokenHourData.volumeUSD = ZERO_BD
-    tokenHourData.untrackedVolumeUSD = ZERO_BD
-    tokenHourData.feesUSD = ZERO_BD
-    tokenHourData.open = tokenPrice
-    tokenHourData.high = tokenPrice
-    tokenHourData.low = tokenPrice
-    tokenHourData.close = tokenPrice
-  }
+  tickData.save()
 
-  if (tokenPrice.gt(tokenHourData.high)) {
-    tokenHourData.high = tokenPrice
-  }
-
-  if (tokenPrice.lt(tokenHourData.low)) {
-    tokenHourData.low = tokenPrice
-  }
-
-  tokenHourData.close = tokenPrice
-  tokenHourData.priceUSD = tokenPrice
-  tokenHourData.totalValueLocked = token.totalValueLocked
-  tokenHourData.totalValueLockedUSD = token.totalValueLockedUSD
-  tokenHourData.save()
-
-  return tokenHourData as TokenHourData
-}
-
-export function updateTickDayData(tick: Tick, event: ethereum.Event): TickDayData {
-  let timestamp = event.block.timestamp.toI32()
-  let dayID = timestamp / 86400
-  let dayStartTimestamp = dayID * 86400
-  let tickDayDataID = tick.id.concat('-').concat(dayID.toString())
-  let tickDayData = TickDayData.load(tickDayDataID)
-  if (tickDayData === null) {
-    tickDayData = new TickDayData(tickDayDataID)
-    tickDayData.date = dayStartTimestamp
-    tickDayData.pool = tick.pool
-    tickDayData.tick = tick.id
-  }
-  tickDayData.liquidityGross = tick.liquidityGross
-  tickDayData.liquidityNet = tick.liquidityNet
-  tickDayData.volumeToken0 = tick.volumeToken0
-  tickDayData.volumeToken1 = tick.volumeToken0
-  tickDayData.volumeUSD = tick.volumeUSD
-  tickDayData.feesUSD = tick.feesUSD
-  tickDayData.feeGrowthOutside0X128 = tick.feeGrowthOutside0X128
-  tickDayData.feeGrowthOutside1X128 = tick.feeGrowthOutside1X128
-
-  tickDayData.save()
-
-  return tickDayData as TickDayData
+  return tickData as TickData
 }

@@ -1,6 +1,6 @@
 type Factory @entity {
   # factory address
-  id: ID!
+  id: Bytes!
   # amount of pools created
   poolCount: BigInt!
   # amoutn of transactions all time
@@ -74,7 +74,7 @@ type Token @entity {
   # pools token is in that are white listed for USD pricing
   whitelistPools: [Pool!]!
   # derived fields
-  tokenDayData: [TokenDayData!]! @derivedFrom(field: "token")
+  tokenDayData: [tokenTimeseries!]! @derivedFrom(field: "token")
   version: Int
 }
 
@@ -236,7 +236,7 @@ type Position @entity {
   feeGrowthInside1LastX128: BigInt!
 }
 
-type PositionSnapshot @entity {
+type PositionSnapshot @entity (immutable: true) {
   # <NFT token id>#<block number>
   id: ID!
   # owner of the NFT
@@ -270,7 +270,7 @@ type PositionSnapshot @entity {
   feeGrowthInside1LastX128: BigInt!
 }
 
-type Transaction @entity {
+type Transaction @entity (immutable: true) {
   # txn hash
   id: ID!
   # block txn was included in
@@ -288,7 +288,7 @@ type Transaction @entity {
   collects: [Collect]! @derivedFrom(field: "transaction")
 }
 
-type Mint @entity {
+type Mint @entity (immutable: true) {
   # transaction hash + "#" + index in mints Transaction array
   id: ID!
   # which txn the mint was included in
@@ -323,7 +323,7 @@ type Mint @entity {
   logIndex: BigInt
 }
 
-type Burn @entity {
+type Burn @entity (immutable: true) {
   # transaction hash + "#" + index in mints Transaction array
   id: ID!
   # txn burn was included in
@@ -356,7 +356,7 @@ type Burn @entity {
   logIndex: BigInt
 }
 
-type Swap @entity {
+type Swap @entity (immutable: true) {
   # transaction hash + "#" + index in swaps Transaction array
   id: ID!
   # pointer to transaction
@@ -389,7 +389,7 @@ type Swap @entity {
   logIndex: BigInt
 }
 
-type Collect @entity {
+type Collect @entity (immutable: true) {
   # transaction hash + "#" + index in collect Transaction array
   id: ID!
   # pointer to txn
@@ -414,7 +414,7 @@ type Collect @entity {
   logIndex: BigInt
 }
 
-type Flash @entity {
+type Flash @entity (immutable: true) {
   # transaction hash + "-" + index in collect Transaction array
   id: ID!
   # pointer to txn
@@ -549,6 +549,10 @@ type PoolHourData @entity {
   close: BigDecimal!
 }
 
+#######################
+### Tick Timeseries ###
+#######################
+
 type TickHourData @entity {
   # format: <pool address>-<tick index>-<timestamp>
   id: ID!
@@ -600,42 +604,62 @@ type TickDayData @entity {
   feeGrowthOutside1X128: BigInt!
 }
 
-type TokenDayData @entity {
-  # token address concatendated with date
-  id: ID!
-  # timestamp rounded to current day by dividing by 86400
-  date: Int!
-  # pointer to token
-  token: Token!
-  # volume in token units
-  volume: BigDecimal!
-  # volume in derived USD
+type TickData @entity(timseries: true) {
+  id: Int8! #auto generated
+  timestamp: Timestamp!  # Auto generated from block.timestamp
+  # pointer to pool
+  pool: Pool!
+  # pointer to tick
+  tick: Tick!
+  # total liquidity pool has as tick lower or upper at end of period
+  liquidityGross: BigInt!
+  # how much liquidity changes when tick crossed at end of period
+  liquidityNet: BigInt!
+  # hourly volume of token0 with this tick in range
+  volumeToken0: BigDecimal!
+  # hourly volume of token1 with this tick in range
+  volumeToken1: BigDecimal!
+  # hourly volume in derived USD with this tick in range
   volumeUSD: BigDecimal!
-  # volume in USD even on pools with less reliable USD values
-  untrackedVolumeUSD: BigDecimal!
-  # liquidity across all pools in token units
-  totalValueLocked: BigDecimal!
-  # liquidity across all pools in derived USD
-  totalValueLockedUSD: BigDecimal!
-  # price at end of period in USD
-  priceUSD: BigDecimal!
   # fees in USD
   feesUSD: BigDecimal!
-  # opening price USD
-  open: BigDecimal!
-  # high price USD
-  high: BigDecimal!
-  # low price USD
-  low: BigDecimal!
-  # close price USD
-  close: BigDecimal!
+  # vars needed for fee computation
+  feeGrowthOutside0X128: BigInt!
+  feeGrowthOutside1X128: BigInt!
 }
 
-type TokenHourData @entity {
-  # token address concatendated with date
-  id: ID!
-  # unix timestamp for start of hour
-  periodStartUnix: Int!
+type TickTimseries @aggregation(intervals: ["hour", "day"], source: "MarketData") {
+  id: Int8! #auto generated
+  timestamp: Timestamp!  # Auto generated from block.timestamp
+  # pointer to pool
+  pool: Pool!
+  # pointer to tick
+  tick: Tick!
+  # total liquidity pool has as tick lower or upper at end of period
+  liquidityGross: BigInt! @aggregate(fn: "last", arg: "liquidityGross")
+  # how much liquidity changes when tick crossed at end of period
+  liquidityNet: BigInt! @aggregate(fn: "last", arg: "liquidityNet")
+  # hourly volume of token0 with this tick in range
+  volumeToken0: BigDecimal! @aggregate(fn: "sum", arg: "volumeToken0")
+  # hourly volume of token1 with this tick in range
+  volumeToken1: BigDecimal! @aggregate(fn: "sum", arg: "volumeToken1")
+  # hourly volume in derived USD with this tick in range
+  volumeUSD: BigDecimal! @aggregate(fn: "sum", arg: "volumeUSD")
+  # fees in USD
+  feesUSD: BigDecimal! @aggregate(fn: "sum", arg: "feesUSD")
+  # vars needed for fee computation
+  feeGrowthOutside0X128: BigInt! @aggregate(fn: "sum", arg: "volume")
+  feeGrowthOutside1X128: BigInt! @aggregate(fn: "sum", arg: "volume")
+}
+
+########################
+### Token Timeseries ###
+########################
+
+# Singular data points that will be aggregated for the timeseries 
+type TokenData @entity(timseries: true) {
+  id: Int8! #auto generated
+  timestamp: Timestamp!  # Auto generated from block.timestamp
   # pointer to token
   token: Token!
   # volume in token units
@@ -652,12 +676,36 @@ type TokenHourData @entity {
   priceUSD: BigDecimal!
   # fees in USD
   feesUSD: BigDecimal!
-  # opening price USD
-  open: BigDecimal!
-  # high price USD
-  high: BigDecimal!
-  # low price USD
-  low: BigDecimal!
-  # close price USD
-  close: BigDecimal!
+
 }
+
+# Aggregated Day and Hour values for our data points
+type tokenTimeseries @aggregation(intervals: ["hour", "day"], source: "MarketData") {
+  id: Int8! #auto generated
+  timestamp: Timestamp!  # Auto generated from block.timestamp
+    # pointer to token
+  token: Token!
+  # volume in token units
+  volume: BigDecimal! @aggregate(fn: "sum", arg: "volume")
+  # volume in derived USD
+  volumeUSD: BigDecimal! @aggregate(fn: "sum", arg: "volumeUSD")
+  # volume in USD even on pools with less reliable USD values
+  untrackedVolumeUSD: BigDecimal! @aggregate(fn: "sum", arg: "untrackedVolumeUSD")
+  # liquidity across all pools in token units
+  totalValueLocked: BigDecimal! @aggregate(fn: "last", arg: "totalValueLocked")
+  # liquidity across all pools in derived USD
+  totalValueLockedUSD: BigDecimal! @aggregate(fn: "last", arg: "totalValueLockedUSD")
+  # price at end of period in USD
+  priceUSD: BigDecimal! @aggregate(fn: "last", arg: "priceUSD")
+  # fees in USD
+  feesUSD: BigDecimal! @aggregate(fn: "sum", arg: "feesUSD")
+  # opening price USD
+  open: BigDecimal! @aggregate(fn: "last", arg: "priceUSD")
+  # high price USD
+  high: BigDecimal! @aggregate(fn: "max", arg: "priceUSD")
+  # low price USD
+  low: BigDecimal! @aggregate(fn: "min", arg: "priceUSD")
+  # close price USD
+  close: BigDecimal! @aggregate(fn: "last", arg: "priceUSD")
+}
+
