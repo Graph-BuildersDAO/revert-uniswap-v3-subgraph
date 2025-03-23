@@ -1,11 +1,11 @@
 /* eslint-disable prefer-const */
-import { log, BigDecimal, BigInt } from '@graphprotocol/graph-ts'
+import { log, BigDecimal, BigInt, Bytes } from '@graphprotocol/graph-ts'
 import { bigDecimalExponated, safeDiv } from '.'
 import { FeeTierToTickSpacing, Tick } from '../types/schema'
 import { Mint as MintEvent } from '../types/templates/Pool/Pool'
 import { ONE_BD, ZERO_BD, ZERO_BI } from './constants'
 
-export function createTick(tickId: string, tickIdx: i32, poolId: string, event: MintEvent): Tick {
+export function createTick(tickId: Bytes, tickIdx: i32, poolId: Bytes, event: MintEvent): Tick {
   let tick = new Tick(tickId)
   tick.tickIdx = BigInt.fromI32(tickIdx)
   tick.pool = poolId

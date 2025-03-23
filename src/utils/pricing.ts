@@ -1,19 +1,19 @@
 /* eslint-disable prefer-const */
 import { ONE_BD, ZERO_BD, ZERO_BI } from './constants'
 import { Bundle, Pool, Token } from './../types/schema'
-import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, Bytes } from '@graphprotocol/graph-ts'
 import { exponentToBigDecimal, safeDiv } from '../utils/index'
 
-const WETH_ADDRESS = '0x4200000000000000000000000000000000000006'
-const USDC_WETH_03_POOL = '0x4c36388be6f416a29c8d8eee81c771ce6be14b18'
+const WETH_ADDRESS = Address.fromString('0x4200000000000000000000000000000000000006')
+const USDC_WETH_03_POOL = Address.fromString('0x4c36388be6f416a29c8d8eee81c771ce6be14b18')
 
 // token where amounts should contribute to tracked volume and liquidity
 // usually tokens that many tokens are paired with s
-export let WHITELIST_TOKENS: string[] = [
+export let WHITELIST_TOKENS: Address[] = [
   WETH_ADDRESS, // WETH
-  "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca", // USDCb
-  "0x50c5725949a6f0c72e6c4a641f24049a917db0cb", // DAI
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" // USDC
+  Address.fromString("0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"), // USDCb
+  Address.fromString("0x50c5725949a6f0c72e6c4a641f24049a917db0cb"), // DAI
+  Address.fromString("0x833589fcd6edb6e08f4c7c32d4f71b54bda02913") // USDC
 ]
 
 let MINIMUM_ETH_LOCKED = BigDecimal.fromString('0.01')
@@ -63,7 +63,7 @@ export function findEthPerToken(token: Token, otherToken: Token): BigDecimal {
     let poolAddress = whiteList[i]
     let pool = Pool.load(poolAddress)!
     if (pool.liquidity.gt(ZERO_BI)) {
-      if (pool.token0 == token.id && (pool.token1 != otherToken.id || !WHITELIST_TOKENS.includes(pool.token0))) {
+      if (pool.token0 == token.id && (pool.token1 != otherToken.id || !WHITELIST_TOKENS.includes(Address.fromBytes(pool.token0)))) {
         // whitelist token is token1
         let token1 = Token.load(pool.token1)!
         // get the derived ETH in pool
@@ -74,7 +74,7 @@ export function findEthPerToken(token: Token, otherToken: Token): BigDecimal {
           priceSoFar = pool.token1Price.times(token1.derivedETH as BigDecimal)
         }
       }
-      if (pool.token1 == token.id && (pool.token0 != otherToken.id || !WHITELIST_TOKENS.includes(pool.token1))) {
+      if (pool.token1 == token.id && (pool.token0 != otherToken.id || !WHITELIST_TOKENS.includes(Address.fromBytes(pool.token1)))) {
         let token0 = Token.load(pool.token0)!
         // get the derived ETH in pool
         let ethLocked = pool.totalValueLockedToken0.times(token0.derivedETH)
@@ -106,17 +106,17 @@ export function getTrackedAmountUSD(
   let price1USD = token1.derivedETH.times(bundle.ethPriceUSD)
 
   // both are whitelist tokens, return sum of both amounts
-  if (WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+  if (WHITELIST_TOKENS.includes(Address.fromBytes(token0.id)) && WHITELIST_TOKENS.includes(Address.fromBytes(token1.id))) {
     return tokenAmount0.times(price0USD).plus(tokenAmount1.times(price1USD))
   }
 
   // take double value of the whitelisted token amount
-  if (WHITELIST_TOKENS.includes(token0.id) && !WHITELIST_TOKENS.includes(token1.id)) {
+  if (WHITELIST_TOKENS.includes(Address.fromBytes(token0.id)) && !WHITELIST_TOKENS.includes(Address.fromBytes(token1.id))) {
     return tokenAmount0.times(price0USD).times(BigDecimal.fromString('2'))
   }
 
   // take double value of the whitelisted token amount
-  if (!WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+  if (!WHITELIST_TOKENS.includes(Address.fromBytes(token0.id)) && WHITELIST_TOKENS.includes(Address.fromBytes(token1.id))) {
     return tokenAmount1.times(price1USD).times(BigDecimal.fromString('2'))
   }
 

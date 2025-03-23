@@ -1,7 +1,7 @@
 /* eslint-disable prefer-const */
 import { Bundle, Burn, Factory, Mint, Pool, Swap, Tick, Token } from '../types/schema'
 import { Pool as PoolABI } from '../types/Factory/Pool'
-import { BigDecimal, BigInt, ethereum, Address } from '@graphprotocol/graph-ts'
+import { BigDecimal, BigInt, ethereum, Address, Bytes } from '@graphprotocol/graph-ts'
 import {
   Burn as BurnEvent,
   Flash as FlashEvent,
@@ -13,17 +13,16 @@ import { convertTokenToDecimal, loadTransaction, safeDiv } from '../utils'
 import { factoryContract, FACTORY_ADDRESS, ONE_BI, ZERO_BD, ZERO_BI, ADDRESS_ZERO } from '../utils/constants'
 import { findEthPerToken, getEthPriceInUSD, getTrackedAmountUSD, sqrtPriceX96ToTokenPrices } from '../utils/pricing'
 import {
-  updatePoolDayData,
-  updatePoolHourData,
+  updatePoolTimeseries,
   updateTickTimeseries,
   updateTokenTimeseries,
-  updateUniswapDayData
+  updateUniswapTimeseries
 } from '../utils/intervalUpdates'
 import { createTick, feeTierToTickSpacing } from '../utils/tick'
 
 export function handleInitialize(event: Initialize): void {
   // update pool sqrt price and tick
-  let pool = Pool.load(event.address.toHexString())!
+  let pool = Pool.load(event.address)!
   pool.sqrtPrice = event.params.sqrtPriceX96
   pool.tick = BigInt.fromI32(event.params.tick)
   pool.save()
@@ -37,19 +36,20 @@ export function handleInitialize(event: Initialize): void {
   bundle.ethPriceUSD = getEthPriceInUSD()
   bundle.save()
 
-  updatePoolDayData(event)
-  updatePoolHourData(event)
+  updatePoolTimeseries(event)
 
   // update token prices
   token0.derivedETH = findEthPerToken(token0 as Token, token1 as Token)
+  token0.priceUSD = token0.derivedETH.times(bundle.ethPriceUSD)
   token1.derivedETH = findEthPerToken(token1 as Token, token0 as Token)
+  token1.priceUSD = token0.derivedETH.times(bundle.ethPriceUSD)
   token0.save()
   token1.save()
 }
 
 export function handleMint(event: MintEvent): void {
   let bundle = Bundle.load('1')!
-  let poolAddress = event.address.toHexString()
+  let poolAddress = event.address
   let pool = Pool.load(poolAddress)!
   let factory = Factory.load(FACTORY_ADDRESS)!
 
@@ -103,7 +103,7 @@ export function handleMint(event: MintEvent): void {
   factory.totalValueLockedUSD = factory.totalValueLockedETH.times(bundle.ethPriceUSD)
 
   let transaction = loadTransaction(event)
-  let mint = new Mint(transaction.id.toString() + '#' + pool.txCount.toString())
+  let mint = new Mint(transaction.id.concatI32(event.logIndex.toI32()))
   mint.transaction = transaction.id
   mint.timestamp = transaction.timestamp
   mint.pool = pool.id
@@ -124,8 +124,8 @@ export function handleMint(event: MintEvent): void {
   let lowerTickIdx = event.params.tickLower
   let upperTickIdx = event.params.tickUpper
 
-  let lowerTickId = poolAddress + '#' + BigInt.fromI32(event.params.tickLower).toString()
-  let upperTickId = poolAddress + '#' + BigInt.fromI32(event.params.tickUpper).toString()
+  let lowerTickId = poolAddress.concat(Bytes.fromI32(event.params.tickLower))
+  let upperTickId = poolAddress.concat(Bytes.fromI32(event.params.tickUpper))
 
   let lowerTick = Tick.load(lowerTickId)
   let upperTick = Tick.load(upperTickId)
@@ -147,9 +147,8 @@ export function handleMint(event: MintEvent): void {
   // TODO: Update Tick's volume, fees, and liquidity provider count. Computing these on the tick
   // level requires reimplementing some of the swapping code from v3-core.
 
-  updateUniswapDayData(event)
-  updatePoolDayData(event)
-  updatePoolHourData(event)
+  updateUniswapTimeseries()
+  updatePoolTimeseries(event)
   updateTokenTimeseries(token0)
   updateTokenTimeseries(token1)
 
@@ -166,7 +165,7 @@ export function handleMint(event: MintEvent): void {
 
 export function handleBurn(event: BurnEvent): void {
   let bundle = Bundle.load('1')!
-  let poolAddress = event.address.toHexString()
+  let poolAddress = event.address
   let pool = Pool.load(poolAddress)!
   let factory = Factory.load(FACTORY_ADDRESS)!
 
@@ -220,7 +219,7 @@ export function handleBurn(event: BurnEvent): void {
 
   // burn entity
   let transaction = loadTransaction(event)
-  let burn = new Burn(transaction.id + '#' + pool.txCount.toString())
+  let burn = new Burn(transaction.id.concatI32(event.logIndex.toI32()))
   burn.transaction = transaction.id
   burn.timestamp = transaction.timestamp
   burn.pool = pool.id
@@ -237,8 +236,8 @@ export function handleBurn(event: BurnEvent): void {
   burn.logIndex = event.logIndex
 
   // tick entities
-  let lowerTickId = poolAddress + '#' + BigInt.fromI32(event.params.tickLower).toString()
-  let upperTickId = poolAddress + '#' + BigInt.fromI32(event.params.tickUpper).toString()
+  let lowerTickId = poolAddress.concat(Bytes.fromI32(event.params.tickLower))
+  let upperTickId = poolAddress.concat(Bytes.fromI32(event.params.tickUpper))
   let lowerTick = Tick.load(lowerTickId)!
   let upperTick = Tick.load(upperTickId)!
   let amount = event.params.amount
@@ -247,9 +246,8 @@ export function handleBurn(event: BurnEvent): void {
   upperTick.liquidityGross = upperTick.liquidityGross.minus(amount)
   upperTick.liquidityNet = upperTick.liquidityNet.plus(amount)
 
-  updateUniswapDayData(event)
-  updatePoolDayData(event)
-  updatePoolHourData(event)
+  updateUniswapTimeseries()
+  updatePoolTimeseries(event)
   updateTokenTimeseries(token0 as Token)
   updateTokenTimeseries(token1 as Token)
   updateTickFeeVarsAndSave(lowerTick, event)
@@ -265,10 +263,10 @@ export function handleBurn(event: BurnEvent): void {
 export function handleSwap(event: SwapEvent): void {
   let bundle = Bundle.load('1')!
   let factory = Factory.load(FACTORY_ADDRESS)!
-  let pool = Pool.load(event.address.toHexString())!
+  let pool = Pool.load(event.address)!
 
   // hot fix for bad pricing
-  if (pool.id == '0x9663f2ca0454accad3e094448ea6f77443880454') {
+  if (pool.id == Address.fromString('0x9663f2ca0454accad3e094448ea6f77443880454')) {
     return
   }
 
@@ -373,7 +371,9 @@ export function handleSwap(event: SwapEvent): void {
   bundle.ethPriceUSD = getEthPriceInUSD()
   bundle.save()
   token0.derivedETH = findEthPerToken(token0 as Token, token1 as Token)
+  token0.priceUSD = token0.derivedETH.times(bundle.ethPriceUSD)
   token1.derivedETH = findEthPerToken(token1 as Token, token0 as Token)
+  token1.priceUSD = token1.derivedETH.times(bundle.ethPriceUSD)
 
   /**
    * Things afffected by new USD rates
@@ -391,7 +391,7 @@ export function handleSwap(event: SwapEvent): void {
 
   // create Swap event
   let transaction = loadTransaction(event)
-  let swap = new Swap(transaction.id + '#' + pool.txCount.toString())
+  let swap = new Swap(transaction.id.concatI32(event.logIndex.toI32()))
   swap.transaction = transaction.id
   swap.timestamp = transaction.timestamp
   swap.pool = pool.id
@@ -415,26 +415,20 @@ export function handleSwap(event: SwapEvent): void {
   pool.feeGrowthGlobal1X128 = feeGrowthGlobal1X128 as BigInt
 
   // interval data
-  let uniswapDayData = updateUniswapDayData(event)
-  let poolDayData = updatePoolDayData(event)
-  let poolHourData = updatePoolHourData(event)
+  let uniswapData = updateUniswapTimeseries()
+  let poolData = updatePoolTimeseries(event)
   let token0Data = updateTokenTimeseries(token0 as Token)
   let token1Data = updateTokenTimeseries(token1 as Token)
 
   // update volume metrics
-  uniswapDayData.volumeETH = uniswapDayData.volumeETH.plus(amountTotalETHTracked)
-  uniswapDayData.volumeUSD = uniswapDayData.volumeUSD.plus(amountTotalUSDTracked)
-  uniswapDayData.feesUSD = uniswapDayData.feesUSD.plus(feesUSD)
+  uniswapData.volumeETH = amountTotalETHTracked
+  uniswapData.volumeUSD = amountTotalUSDTracked
+  uniswapData.feesUSD = feesUSD
 
-  poolDayData.volumeUSD = poolDayData.volumeUSD.plus(amountTotalUSDTracked)
-  poolDayData.volumeToken0 = poolDayData.volumeToken0.plus(amount0Abs)
-  poolDayData.volumeToken1 = poolDayData.volumeToken1.plus(amount1Abs)
-  poolDayData.feesUSD = poolDayData.feesUSD.plus(feesUSD)
-
-  poolHourData.volumeUSD = poolHourData.volumeUSD.plus(amountTotalUSDTracked)
-  poolHourData.volumeToken0 = poolHourData.volumeToken0.plus(amount0Abs)
-  poolHourData.volumeToken1 = poolHourData.volumeToken1.plus(amount1Abs)
-  poolHourData.feesUSD = poolHourData.feesUSD.plus(feesUSD)
+  poolData.volumeUSD = amountTotalUSDTracked
+  poolData.volumeToken0 = amount0Abs
+  poolData.volumeToken1 = amount1Abs
+  poolData.feesUSD = feesUSD
 
   token0Data.volume = amount0Abs
   token0Data.volumeUSD = amountTotalUSDTracked
@@ -449,11 +443,8 @@ export function handleSwap(event: SwapEvent): void {
   swap.save()
   token0Data.save()
   token1Data.save()
-  uniswapDayData.save()
-  poolDayData.save()
-  token0HourData.save()
-  token1HourData.save()
-  poolHourData.save()
+  poolData.save()
+  uniswapData.save()
   factory.save()
   pool.save()
   token0.save()
@@ -494,7 +485,7 @@ export function handleSwap(event: SwapEvent): void {
 
 export function handleFlash(event: FlashEvent): void {
   // update fee growth
-  let pool = Pool.load(event.address.toHexString())!
+  let pool = Pool.load(event.address)!
   let poolContract = PoolABI.bind(event.address)
   let feeGrowthGlobal0X128 = poolContract.feeGrowthGlobal0X128()
   let feeGrowthGlobal1X128 = poolContract.feeGrowthGlobal1X128()
@@ -518,10 +509,7 @@ function updateTickFeeVarsAndSave(tick: Tick, event: ethereum.Event): void {
 function loadTickUpdateFeeVarsAndSave(tickId: i32, event: ethereum.Event): void {
   let poolAddress = event.address
   let tick = Tick.load(
-    poolAddress
-      .toHexString()
-      .concat('#')
-      .concat(tickId.toString())
+    poolAddress.concat(Bytes.fromI32(tickId))
   )
   if (tick !== null) {
     updateTickFeeVarsAndSave(tick, event)
@@ -530,23 +518,23 @@ function loadTickUpdateFeeVarsAndSave(tickId: i32, event: ethereum.Event): void 
 
 function addMissingWhitelistedPools(token:Token): void {
   const addressUSDC = Address.fromString("0x833589fcd6edb6e08f4c7c32d4f71b54bda02913")
-  const tokenAddress = Address.fromString(token.id)
+  const tokenAddress = token.id
   if (!addressUSDC.equals(tokenAddress)) {
-    let address100 = factoryContract.getPool(addressUSDC, tokenAddress, 100)
-    let address500 = factoryContract.getPool(addressUSDC, tokenAddress, 500)
-    let address3000 = factoryContract.getPool(addressUSDC, tokenAddress, 3000)
-    let address10000 = factoryContract.getPool(addressUSDC, tokenAddress, 10000)
-    if (!address100.equals(Address.fromString(ADDRESS_ZERO))) {
-      token.whitelistPools.push(address100.toHexString())
+    let address100 = factoryContract.getPool(addressUSDC, Address.fromBytes(tokenAddress), 100)
+    let address500 = factoryContract.getPool(addressUSDC, Address.fromBytes(tokenAddress), 500)
+    let address3000 = factoryContract.getPool(addressUSDC, Address.fromBytes(tokenAddress), 3000)
+    let address10000 = factoryContract.getPool(addressUSDC, Address.fromBytes(tokenAddress), 10000)
+    if (!address100.equals(ADDRESS_ZERO)) {
+      token.whitelistPools.push(address100)
     }
-    if (!address500.equals(Address.fromString(ADDRESS_ZERO))) {
-      token.whitelistPools.push(address500.toHexString())
+    if (!address500.equals(ADDRESS_ZERO)) {
+      token.whitelistPools.push(address500)
     }
-    if (!address3000.equals(Address.fromString(ADDRESS_ZERO))) {
-      token.whitelistPools.push(address3000.toHexString())
+    if (!address3000.equals(ADDRESS_ZERO)) {
+      token.whitelistPools.push(address3000)
     }
-    if (!address10000.equals(Address.fromString(ADDRESS_ZERO))) {
-      token.whitelistPools.push(address10000.toHexString())
+    if (!address10000.equals(ADDRESS_ZERO)) {
+      token.whitelistPools.push(address10000)
     }
   }
 }

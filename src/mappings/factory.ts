@@ -45,13 +45,13 @@ export function handlePoolCreated(event: PoolCreated): void {
 
   factory.poolCount = factory.poolCount.plus(ONE_BI)
 
-  let pool = new Pool(event.params.pool.toHexString()) as Pool
-  let token0 = Token.load(event.params.token0.toHexString())
-  let token1 = Token.load(event.params.token1.toHexString())
+  let pool = new Pool(event.params.pool) as Pool
+  let token0 = Token.load(event.params.token0)
+  let token1 = Token.load(event.params.token1)
 
   // fetch info if null
   if (token0 === null) {
-    token0 = new Token(event.params.token0.toHexString())
+    token0 = new Token(event.params.token0)
     token0.symbol = fetchTokenSymbol(event.params.token0)
     token0.name = fetchTokenName(event.params.token0)
     token0.totalSupply = fetchTokenTotalSupply(event.params.token0)
@@ -65,6 +65,7 @@ export function handlePoolCreated(event: PoolCreated): void {
 
     token0.decimals = decimals
     token0.derivedETH = ZERO_BD
+    token0.priceUSD = ZERO_BD
     token0.volume = ZERO_BD
     token0.volumeUSD = ZERO_BD
     token0.feesUSD = ZERO_BD
@@ -78,7 +79,7 @@ export function handlePoolCreated(event: PoolCreated): void {
   }
 
   if (token1 === null) {
-    token1 = new Token(event.params.token1.toHexString())
+    token1 = new Token(event.params.token1)
     token1.symbol = fetchTokenSymbol(event.params.token1)
     token1.name = fetchTokenName(event.params.token1)
     token1.totalSupply = fetchTokenTotalSupply(event.params.token1)
@@ -90,6 +91,7 @@ export function handlePoolCreated(event: PoolCreated): void {
     }
     token1.decimals = decimals
     token1.derivedETH = ZERO_BD
+    token1.priceUSD = ZERO_BD
     token1.volume = ZERO_BD
     token1.volumeUSD = ZERO_BD
     token1.untrackedVolumeUSD = ZERO_BD
@@ -103,12 +105,12 @@ export function handlePoolCreated(event: PoolCreated): void {
   }
 
   // update white listed pools
-  if (WHITELIST_TOKENS.includes(token0.id)) {
+  if (WHITELIST_TOKENS.includes(Address.fromBytes(token0.id))) {
     let newPools = token1.whitelistPools
     newPools.push(pool.id)
     token1.whitelistPools = newPools
   }
-  if (WHITELIST_TOKENS.includes(token1.id)) {
+  if (WHITELIST_TOKENS.includes(Address.fromBytes(token1.id))) {
     let newPools = token0.whitelistPools
     newPools.push(pool.id)
     token0.whitelistPools = newPools

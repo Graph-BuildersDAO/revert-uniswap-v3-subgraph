@@ -108,6 +108,7 @@ templates:
           calls:
             feeGrowthGlobal0X128: Pool[event.address].feeGrowthGlobal0X128()
             feeGrowthGlobal1X128: Pool[event.address].feeGrowthGlobal1X128()
+            ticks: Pool[event.address].ticks(event.params.tick)
         - event: Mint(address,indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
           handler: handleMint
           receipt: true
