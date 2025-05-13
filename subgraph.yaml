@@ -1,22 +1,20 @@
 specVersion: 1.2.0
 description: Uniswap is a decentralized protocol for automated token exchange on Ethereum.
+
 repository: https://github.com/Uniswap/uniswap-v3-subgraph
 schema:
   file: ./schema.graphql
-features:
-  - nonFatalErrors
-  - grafting
 dataSources:
   - kind: ethereum/contract
     name: Factory
-    network: base
+    network: mainnet
     source:
       address: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD'
       abi: Factory
       startBlock: 1371680
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.6
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       file: ./src/mappings/factory.ts
       entities:
@@ -36,18 +34,16 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
           handler: handlePoolCreated
-        - event: FeeAmountEnabled(indexed uint24,indexed int24)
-          handler: handleFeeAmountEnabled
   - kind: ethereum/contract
     name: NonfungiblePositionManager
-    network: base
+    network: mainnet
     source:
       address: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1'
       abi: NonfungiblePositionManager
       startBlock: 1371714
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.6
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       file: ./src/mappings/position-manager.ts
       entities:
@@ -82,12 +78,12 @@ dataSources:
 templates:
   - kind: ethereum/contract
     name: Pool
-    network: base
+    network: mainnet
     source:
       abi: Pool
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.6
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       file: ./src/mappings/core.ts
       entities:
@@ -108,7 +104,6 @@ templates:
           calls:
             feeGrowthGlobal0X128: Pool[event.address].feeGrowthGlobal0X128()
             feeGrowthGlobal1X128: Pool[event.address].feeGrowthGlobal1X128()
-            ticks: Pool[event.address].ticks(event.params.tick)
         - event: Mint(address,indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
           handler: handleMint
           receipt: true
