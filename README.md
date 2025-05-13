@@ -118,14 +118,20 @@ yarn build-subgraph mainnet
    ```
    Your deploy key can be found on your Subgraph Studio dashboard.
 
-3. Deploy the subgraph:
+3. Authenticate with The Graph:
    ```bash
-   graph deploy <slug_name>
+   graph auth --studio <deploy-key>
+   ```
+   Use the same deploy key you added to your `.env` file.
+
+4. Deploy the subgraph:
+   ```bash
+   yarn deploy-studio <network> <subgraph-name> <version>
    ```
 
    Example:
    ```bash
-   graph deploy <revert-subgraph>
+   yarn deploy-studio mainnet subgraph-revert 0.0.1
    ```
 
 ## Understanding Grafting
