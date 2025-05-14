@@ -1,4 +1,4 @@
-type Factory @entity {
+type Factory @entity(immutable: true) {
   # factory address
   id: Bytes!
   # amount of pools created
@@ -28,19 +28,19 @@ type Factory @entity {
   owner: Bytes!
 }
 
-type FeeTierToTickSpacing @entity {
+type FeeTierToTickSpacing @entity(immutable: true) {
   id: ID!
   tickSpacing: BigInt!
 }
 
 # stores for USD calculations
-type Bundle @entity {
+type Bundle @entity(immutable: true){
   id: ID!
   # price of ETH in usd
   ethPriceUSD: BigDecimal!
 }
 
-type Token @entity {
+type Token @entity(immutable: true) {
   # token address
   id: Bytes!
   # token symbol
@@ -80,7 +80,7 @@ type Token @entity {
   version: Int
 }
 
-type Pool @entity {
+type Pool @entity(immutable: true){
   # pool address
   id: Bytes!
   # creation
@@ -149,7 +149,7 @@ type Pool @entity {
   ticks: [Tick!]! @derivedFrom(field: "pool")
 }
 
-type Tick @entity {
+type Tick @entity(immutable: true) {
   # format: <pool address>#<tick index>
   id: Bytes!
   # pool address
@@ -195,7 +195,7 @@ type Tick @entity {
   feeGrowthOutside1X128: BigInt!
 }
 
-type Position @entity {
+type Position @entity(immutable: true){
   # Positions created through NonfungiblePositionManager
   # NFT token id
   id: ID!
