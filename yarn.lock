@@ -268,9 +268,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphprotocol/graph-cli@npm:^0.70.0":
-  version: 0.70.0
-  resolution: "@graphprotocol/graph-cli@npm:0.70.0"
+"@graphprotocol/graph-cli@npm:^0.71.2":
+  version: 0.71.2
+  resolution: "@graphprotocol/graph-cli@npm:0.71.2"
   dependencies:
     "@float-capital/float-subgraph-uncrashable": ^0.0.0-alpha.4
     "@oclif/core": 2.8.6
@@ -301,7 +301,7 @@ __metadata:
     yaml: 1.10.2
   bin:
     graph: bin/run
-  checksum: d4d9c622ad26d52453fa8e380f94977ca779c904c1dd7db35921c1918a419a284ba61c6a66ec6dcd9353f5cea7419bdfd768a33c2a29f54bedbbfd1d22273a7e
+  checksum: b1d638eaae025b610baf86e44e3901017c0435482a5f1fd0fcb41f75eb56a428b77e4ae293d4161c05120cb758013ec6472afa6d2de00e4cc0d83e593b6e72b0
   languageName: node
   linkType: hard
 
@@ -5953,7 +5953,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "uniswap-v3-subgraph@workspace:."
   dependencies:
-    "@graphprotocol/graph-cli": ^0.70.0
+    "@graphprotocol/graph-cli": ^0.71.2
     "@graphprotocol/graph-ts": ^0.35.0
     "@types/node": ^22.15.12
     "@typescript-eslint/eslint-plugin": ^2.0.0
