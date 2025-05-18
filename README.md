@@ -189,7 +189,7 @@ If you encounter this error when building:
 Unexpected key in map: calls
 ```
 
-Make sure you're using The Graph CLI version 0.41.0 or later, which supports the `calls` field in event handlers.
+Make sure you're using The Graph CLI version 0.71.2 or later, which supports the `calls` field in event handlers.
 
 ```bash
 npm install -g @graphprotocol/graph-cli@latest
