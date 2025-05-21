@@ -127,12 +127,13 @@ yarn build-subgraph mainnet
 4. Deploy the subgraph:
    ```bash
    graph deploy <slug>
+
+
+  graph auth <deploy-key> && graph deploy subgraph-revert 0.0.1
+   
    ```
 
-   Example:
-   ```bash
-  graph auth <deploy-key> && graph deploy subgraph-revert 0.0.1
-   ```
+
 
 ## Understanding Grafting
 
